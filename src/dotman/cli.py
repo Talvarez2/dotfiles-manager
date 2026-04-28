@@ -3,7 +3,7 @@ import subprocess
 import click
 from pathlib import Path
 from dotman.config import load_config, save_config, default_config, DEFAULT_CONFIG_PATH
-from dotman.linker import create_symlink
+from dotman.linker import create_symlink, check_link
 
 
 @click.group()
@@ -65,13 +65,36 @@ def link(path, name):
 @click.option("-m", "--message", default="dotfiles sync", help="Commit message")
 def sync(message):
     """Commit and push dotfiles changes."""
-    click.echo("sync: not yet implemented")
+    config = _require_config()
+    dotfiles_dir = config["dotfiles_dir"]
+    subprocess.run(["git", "add", "-A"], cwd=dotfiles_dir, check=True)
+    result = subprocess.run(["git", "diff", "--cached", "--quiet"], cwd=dotfiles_dir)
+    if result.returncode == 0:
+        click.echo("Nothing to sync.")
+        return
+    subprocess.run(["git", "commit", "-m", message], cwd=dotfiles_dir, check=True)
+    result = subprocess.run(["git", "remote"], cwd=dotfiles_dir, capture_output=True, text=True)
+    if result.stdout.strip():
+        subprocess.run(["git", "push"], cwd=dotfiles_dir, check=True)
+        click.echo("Synced and pushed.")
+    else:
+        click.echo("Synced (no remote configured).")
 
 
 @cli.command()
 def status():
     """Show tracked dotfiles and their status."""
-    click.echo("status: not yet implemented")
+    config = _require_config()
+    dotfiles_dir = Path(config["dotfiles_dir"])
+    links = _get_links(config)
+    click.echo(f"Profile: {config.get('profile', 'default')}")
+    if not links:
+        click.echo("No tracked dotfiles.")
+        return
+    for name, target in links.items():
+        state = check_link(dotfiles_dir / name, Path(target))
+        icon = {"ok": "✓", "broken": "✗", "missing": "?", "conflict": "!"}.get(state, "?")
+        click.echo(f"  [{icon}] {name} -> {target} ({state})")
 
 
 if __name__ == "__main__":
