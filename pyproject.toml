@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "dotman"
+version = "0.1.0"
+description = "CLI tool to sync dev environment configs across machines"
+requires-python = ">=3.7"
+dependencies = ["click>=8.1", "toml>=0.10"]
+
+[project.scripts]
+dotman = "dotman.cli:cli"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
