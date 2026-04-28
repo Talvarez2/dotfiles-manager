@@ -97,5 +97,46 @@ def status():
         click.echo(f"  [{icon}] {name} -> {target} ({state})")
 
 
+@cli.group()
+def profile():
+    """Manage dotfiles profiles."""
+
+
+@profile.command("list")
+def profile_list():
+    """List available profiles."""
+    config = _require_config()
+    current = config.get("profile", "default")
+    for name in config.get("profiles", {}):
+        marker = " *" if name == current else ""
+        click.echo(f"  {name}{marker}")
+
+
+@profile.command("switch")
+@click.argument("name")
+def profile_switch(name):
+    """Switch to a different profile, applying its symlinks."""
+    config = _require_config()
+    dotfiles_dir = Path(config["dotfiles_dir"])
+    if name not in config.get("profiles", {}):
+        config.setdefault("profiles", {})[name] = {"links": {}}
+        click.echo(f"Created new profile: {name}")
+    # Remove current profile's symlinks
+    for _n, target in _get_links(config).items():
+        t = Path(target)
+        if t.is_symlink():
+            t.unlink()
+    # Switch and apply new profile's symlinks
+    config["profile"] = name
+    save_config(config)
+    for link_name, target in _get_links(config).items():
+        source = dotfiles_dir / link_name
+        if source.exists():
+            create_symlink(source, Path(target))
+    click.echo(f"Switched to profile: {name}")
+
+
+cli.add_command(profile)
+
 if __name__ == "__main__":
     cli()
